@@ -1,35 +1,38 @@
-import open from "open";
-import { Flow } from "./lib/flow";
-import { z } from "zod";
+import { Flow } from "./lib/flow"
+import { z } from "zod"
+import { exec } from 'child_process'
+import childProcess from "child_process"
 
-// The events are the custom events that you define in the flow.on() method.
-const events = ["search"] as const;
-type Events = (typeof events)[number];
+const events = ["copy"] as const
+type Events = (typeof events)[number]
 
-const flow = new Flow<Events>("assets/npm.png");
+const flow = new Flow<Events>("assets/bitwarden.png")
+
+// bw login <email> "<password>" --method 0 --code <totp-code> --raw
 
 flow.on("query", (params) => {
-	const [query] = z.array(z.string()).parse(params);
+  const [query] = z.array(z.string()).parse(params)
 
-	const qp = new URLSearchParams({
-		q: query,
-	});
+  exec(`bw list items --search ${query} --session ${flow.settings.sessionKey}`, function (error, stdout, stderr) {
+    const results = JSON.parse(stdout).map(result => {
+      return {
+        title: result.name,
+        subtitle: result.login.username,
+        method: "copy",
+        parameters: [result.login.password]
+      }
+    })
 
-	const url = `https://www.npmjs.com/search?${qp}`;
+    flow.showResult(...results)
+  })
+})
 
-	flow.showResult({
-		title: `Search NPM package: ${query}`,
-		subtitle: url,
-		method: "search",
-		parameters: [url, "hello"],
-		dontHideAfterAction: true,
-	});
-});
+flow.on("copy", (params) => {
+  const [password] = z.array(z.string()).parse(params)
 
-flow.on("search", (params) => {
-	const [url] = z.array(z.string().url()).parse(params);
+  // exec(`bw get password --itemid ${itemId} --raw --session ${flow.settings.sessionKey}`, function (error, stdout, stderr) {
+  childProcess.spawn("clip").stdin?.end(password)
+  // }
+})
 
-	open(url);
-});
-
-flow.run();
+flow.run()

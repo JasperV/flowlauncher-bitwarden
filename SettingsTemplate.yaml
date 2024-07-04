@@ -1,0 +1,7 @@
+body:
+  - type: passwordBox
+    attributes:
+      name: sessionKey
+      label: Bitwarden Session Key
+      description:
+      defaultValue: <session-key>
